@@ -1,85 +1,97 @@
-# TRON Dual Radar System 📡
+# NERO SENSE - Dual Radar System
 
-![Project Status](https://img.shields.io/badge/Status-Functional-brightgreen) ![Platform](https://img.shields.io/badge/Platform-ESP8266-blue) ![License](https://img.shields.io/badge/License-MIT-orange)
+**Nero Sense** is a high-tech, dual-system radar dashboard designed for environmental scanning and visualization. It combines an Ultrasonic Radar (System A) and a TOF Lidar (System B) into a unified "Tactical Dashboard" web interface.
 
-Ein fortschrittliches, duales Radarsystem, das die Präzision von **LIDAR (TOF)** mit der flächendeckenden Sicherheit von **Ultraschall (Sonar)** kombiniert. Visualisiert in einem futuristischen "TRON-Style" Command Center.
+## 🚀 Features
 
----
-
-## 🌟 Features
-
-### 1. Compound-Radar (Omni-Sonar)
-*   **360° Rundumsicht:** 4x HC-SR04 Sensoren (Vorne, Hinten, Links, Rechts).
-*   **High-Speed Scan:** Sektor-Optimierung (40°-140°) ermöglicht doppelte Scan-Geschwindigkeit bei voller Abdeckung.
-*   **Map Mode:** Erstellt eine persistente Karte des Raumes (SLAM-ähnliche Visualisierung).
-*   **Interleaved Sampling:** Intelligente Sensor-Abfrage verhindert Interferenzen ("Crosstalk").
-*   **Hardware-Fix:** Spezieller WiFi-Modus verhindert Servo-Zittern.
-
-### 2. LIDAR-Radar (Precision Scope)
-*   **Technologie:** VL53L1X Time-of-Flight Laser.
-*   **Präzision:** Millimeter-genaue Messung für feine Details (Tischbeine, Türspalte).
-*   **Visualisierung:** 180° Scanner mit "Nachleucht"-Effekt (Phosphor-Trail).
-
-### 3. Unified Command Center (Dashboard)
-*   **Dual-View:** Gleichzeitige Darstellung beider Radare auf getrennten Scopes.
-*   **Live-Daten:** Echtzeit-Anzeige aller Sensorwerte (cm/mm).
-*   **Steuerung:** Geschwindigkeits-Slider für das Omni-Radar.
-*   **Technologie:** HTML5 Canvas & WebSockets (Keine Installation nötig, läuft im Browser).
+*   **Dual System Support**:
+    *   **System A (Ultrasonic)**: Long-range, multi-sensor scanning (HC-SR04).
+    *   **System B (TOF Lidar)**: High-precision, fast scanning (VL53L1X) with local display.
+*   **Tactical Dashboard**: A futuristic web interface (HTML5/Canvas) featuring:
+    *   **TRON & Matrix Themes**: Distinct visual styles for each system.
+    *   **Real-time Visualization**: Smooth radar sweep, persistent object detection, and fading trails.
+    *   **Dynamic Scaling**: Adjustable range controls (Zoom).
+    *   **Telemetry**: Live distance and angle readouts.
+*   **Hybrid Mode (System B)**: The TOF unit operates as a standalone device with a local **GC9A01 Circular Display**, showing a "Tactical Grid" and data even without WiFi.
 
 ---
 
-## 📂 Projektstruktur
+## 🛠 Hardware & Wiring
 
-```
-Radar/
-├── Docs/               # Dokumentation & Notizen
-├── Firmware/           # Arduino/ESP8266 Code
-│   ├── CompoundRadar/  # Firmware für das 360° Ultraschall-System
-│   └── LidarRadar/     # Firmware für das TOF-System
-├── Hardware/           # 3D-Druck & CAD
-│   └── CAD/            # .STL, .3MF und Source-Files (SolidWorks)
-└── Software/
-    └── Dashboard/      # Das Web-Interface (TRON_Radar.html)
-```
+### System B: TOF Lidar (Hybrid Unit)
+*   **MCU**: Wemos D1 Mini (ESP8266)
+*   **Sensor**: VL53L1X (TOF0400)
+*   **Display**: 1.28" GC9A01 Circular TFT (240x240)
+*   **Actuator**: Micro Servo (SG90)
 
----
-
-## 🚀 Installation & Setup
-
-### 1. Hardware
-*   **Mikrocontroller:** 2x ESP8266 (NodeMCU oder Wemos D1 Mini).
-*   **Verkabelung Compound:**
-    *   Servo: D4 (GPIO 2)
-    *   Trigger A (Front/Back): D5 (GPIO 14)
-    *   Trigger B (Left/Right): D6 (GPIO 12)
-    *   Echo Pins: D1, D2, D7, D8
-*   **Verkabelung LIDAR:**
-    *   Servo: D4 (GPIO 2)
-    *   VL53L1X: I2C (D1/D2)
-
-### 2. Firmware Flashen
-1.  Öffne die `.ino` Dateien in der Arduino IDE.
-2.  Installiere benötigte Bibliotheken: `Servo`, `WebSocketsServer`, `VL53L1X` (für Lidar).
-3.  Passe ggf. WLAN-SSID/Passwort im Code an.
-4.  Flashe die ESPs.
-
-### 3. Dashboard Starten
-1.  Verbinde deinen PC mit dem WLAN der ESPs (oder sorge dafür, dass alle im gleichen Heimnetz sind).
-2.  Öffne `Software/Dashboard/TRON_Radar.html` in einem modernen Browser (Chrome/Firefox).
-3.  Gib die IP-Adressen der beiden Radare ein und klicke auf **INITIALIZE**.
+#### Wiring Diagram
+| Component | Pin | Wemos D1 Mini (GPIO) |
+| :--- | :--- | :--- |
+| **GC9A01** | **SCLK** | **D5** (GPIO 14) |
+| | **MOSI** | **D7** (GPIO 13) |
+| | **CS** | **D8** (GPIO 15) |
+| | **DC** | **D3** (GPIO 0) |
+| | **RST** | **D0** (GPIO 16) |
+| | **VCC** | 3.3V |
+| | **GND** | GND |
+| **VL53L1X** | **SDA** | **D2** (GPIO 4) |
+| | **SCL** | **D1** (GPIO 5) |
+| | **VCC** | 3.3V |
+| | **GND** | GND |
+| **Servo** | **Signal** | **D6** (GPIO 12) |
+| | **VCC** | 5V |
+| | **GND** | GND |
 
 ---
 
-## 🛠️ Steuerung
+## 💾 Firmware Installation
 
-*   **SPEED Slider:** Regelt die Scan-Geschwindigkeit des Ultraschall-Radars.
-*   **RESET MAP:** Löscht die gezeichnete Karte.
-*   **HUD:** Zeigt Live-Werte für Front, Back, Left, Right (Sonar) und Distanz (Lidar).
+### Prerequisites
+1.  **Arduino IDE**: Install the latest version.
+2.  **ESP8266 Board Manager**: Install `esp8266` by ESP8266 Community.
+3.  **Libraries**: Install via Library Manager:
+    *   `TFT_eSPI` by Bodmer
+    *   `VL53L1X` by Pololu
+    *   `WebSockets` by Markus Sattler
+    *   `Servo` (Built-in)
+
+### Configuration (Critical!)
+You **MUST** configure the `TFT_eSPI` library to work with the GC9A01 and Wemos D1 Mini pins.
+1.  Go to your Arduino libraries folder: `Documents/Arduino/libraries/TFT_eSPI/`
+2.  Edit `User_Setup.h`.
+3.  Replace its content with the settings found in: `Firmware/Nereo_Sense_Hybrid_Wemos/User_Setup_Wemos.txt`
+
+### Uploading
+1.  Open `Firmware/Nereo_Sense_Hybrid_Wemos/Nero_Sense_Hybrid_Wemos.ino`.
+2.  Set your WiFi SSID and Password in the code (if not already set).
+3.  Select Board: **LOLIN(WEMOS) D1 R2 & mini**.
+4.  Upload!
 
 ---
 
-## 🤝 Contributing
-Pull Requests sind willkommen! Für größere Änderungen bitte erst ein Issue öffnen.
+## 🖥️ Dashboard Usage
 
-**Author:** Andreas Pfeiffer
-**Co-Pilot:** Google DeepMind Agent
+1.  **Open the Dashboard**: Open `Software/Dashboard/TRON_Radar.html` in any modern web browser.
+2.  **Connect**:
+    *   Enter the IP address of System A (Default: `192.168.178.70`).
+    *   Enter the IP address of System B (Default: `192.168.178.41`).
+    *   Click **CONNECT**.
+3.  **Controls**:
+    *   **Range**: Adjust the input field (e.g., "50" cm or "1000" mm) to zoom in/out.
+    *   **Visuals**: Enjoy the show!
+
+---
+
+## 📂 Repository Structure
+
+*   `Docs/`: Documentation files.
+*   `Firmware/`: Arduino source code.
+    *   `Nereo_Sense_Hybrid_Wemos/`: Firmware for System B (TOF).
+    *   `LidarRadar/`: Firmware for System A (Ultrasonic).
+*   `Hardware/`: CAD files and 3D models.
+*   `Software/`: PC-side software.
+    *   `Dashboard/`: The HTML5 Web Interface.
+
+---
+
+**Nero Sense Project** - *Advanced Environmental Awareness*

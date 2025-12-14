@@ -1,0 +1,42 @@
+// ============================================================================
+// TFT_eSPI LIBRARY CONFIGURATION FOR NEREO SENSE (ESP-12F + GC9A01)
+// ============================================================================
+// Locate the 'User_Setup.h' file in your Arduino libraries folder:
+// Path: Documents/Arduino/libraries/TFT_eSPI/User_Setup.h
+//
+// REPLACE the contents or UNCOMMENT/EDIT the following lines:
+
+#define USER_SETUP_INFO "Nereo_Sense_GC9A01"
+
+// 1. Driver
+#define GC9A01_DRIVER
+
+// 2. Pin Definitions (ESP8266 / ESP-12F)
+// ---------------------------------------
+// SCLK: GPIO 14
+// MOSI: GPIO 13
+// CS:   GPIO 15
+// DC:   GPIO 0
+// RST:  GPIO 16
+
+#define TFT_MISO  -1  // Not used
+#define TFT_MOSI  13
+#define TFT_SCLK  14
+#define TFT_CS    15
+#define TFT_DC    0
+#define TFT_RST   16
+
+// 3. Fonts
+#define LOAD_GLCD   // Font 1. Original Glcd font
+#define LOAD_FONT2  // Font 2. Small 16 pixel high font
+#define LOAD_FONT4  // Font 4. Medium 26 pixel high font
+#define LOAD_FONT6  // Font 6. Large 48 pixel font
+#define LOAD_GFXFF  // FreeFonts. Include access to the 48 Adafruit_GFX free fonts FF1 to FF48
+
+#define SMOOTH_FONT
+
+// 4. SPI Frequency
+#define SPI_FREQUENCY  27000000 // 27MHz is usually stable for GC9A01
+// #define SPI_FREQUENCY  40000000 // Try 40MHz if stable for higher FPS
+
+// ============================================================================
