@@ -224,8 +224,9 @@ void drawRadar(int angle, int dist) {
   if (nextAngle > ANGLE_MAX) nextAngle = ANGLE_MAX;
   
   if (nextAngle != angle) {
-      float rad1 = (180 - angle) * DEG_TO_RAD;
-      float rad2 = (180 - nextAngle) * DEG_TO_RAD;
+      // FIX: Removed "180 - " to mirror the display correctly
+      float rad1 = angle * DEG_TO_RAD;
+      float rad2 = nextAngle * DEG_TO_RAD;
       
       int x1 = CX + cos(rad1) * R_MAX;
       int y1 = CY - sin(rad1) * R_MAX;
@@ -235,12 +236,14 @@ void drawRadar(int angle, int dist) {
       // Wipe the sector ahead black
       tft.fillTriangle(CX, CY, x1, y1, x2, y2, C_BLACK);
   }
+
   // 2. RESTORE MAP BEHIND SCANNER
   // The scanner has moved FROM lastScannerAngle TO angle.
   // We need to restore the map data at lastScannerAngle.
   
   if (lastScannerAngle != angle) {
-      float lastRad = (180 - lastScannerAngle) * DEG_TO_RAD;
+      // FIX: Removed "180 - "
+      float lastRad = lastScannerAngle * DEG_TO_RAD;
       int lastEdgeX = CX + cos(lastRad) * R_MAX;
       int lastEdgeY = CY - sin(lastRad) * R_MAX;
       
@@ -260,8 +263,6 @@ void drawRadar(int angle, int dist) {
           int dPx = map(storedDist, 0, MAX_DIST_MM, 0, R_MAX);
           int ox = CX + cos(lastRad) * dPx;
           int oy = CY - sin(lastRad) * dPx;
-          int lastEdgeX = CX + cos(lastRad) * R_MAX;
-          int lastEdgeY = CY - sin(lastRad) * R_MAX;
           
           // Zone B: Contour Line (Thin Cyan)
           // 1. Draw Shadow first (Background)
@@ -269,14 +270,6 @@ void drawRadar(int angle, int dist) {
           
           // 2. Draw Contour (Foreground)
           int prevIndex = lastScannerAngle - (direction * ANGLE_STEP); // Use direction!
-          // Note: direction might have flipped if we hit edge. 
-          // But usually we restore the *trailing* edge.
-          // If we just turned around, lastScannerAngle is the turning point.
-          
-          // Simple neighbor check:
-          // We want to connect lastScannerAngle to its "previous" neighbor in the sweep.
-          // Since we sweep back and forth, "previous" is relative to time.
-          // But for a static map, we usually connect to angle-1.
           
           int neighborIdx = lastScannerAngle - 1;
           bool connected = false;
@@ -284,7 +277,8 @@ void drawRadar(int angle, int dist) {
           if (neighborIdx >= 0) {
              int prevDist = distHistory[neighborIdx];
              if (prevDist > 0 && prevDist < MAX_DIST_MM && abs(prevDist - storedDist) < 150) {
-                 float prevRad = (180 - neighborIdx) * DEG_TO_RAD;
+                 // FIX: Removed "180 - "
+                 float prevRad = neighborIdx * DEG_TO_RAD;
                  int pdPx = map(prevDist, 0, MAX_DIST_MM, 0, R_MAX);
                  int pox = CX + cos(prevRad) * pdPx;
                  int poy = CY - sin(prevRad) * pdPx;
@@ -299,8 +293,10 @@ void drawRadar(int angle, int dist) {
           }
       }
   }
+
   // 3. DRAW NEW SCANNER LINE
-  float rad = (180 - angle) * DEG_TO_RAD;
+  // FIX: Removed "180 - "
+  float rad = angle * DEG_TO_RAD;
   int edgeX = CX + cos(rad) * R_MAX;
   int edgeY = CY - sin(rad) * R_MAX;
   

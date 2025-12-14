@@ -48,7 +48,8 @@ Features:
 2. Radar Logic (The "Tesla View"):
    - Servo sweeps 0-180 degrees using millis() (non-blocking). Step size: 1 degree.
    - Store readings in an array `distHistory[181]`.
-   - Drawing Logic (Artifact Free):
+   - Drawing Logic (Artifact Free & Correct Orientation):
+     - **Orientation**: Use `angle` directly for radians (not `180-angle`) to match physical servo movement (Left=Left).
      - **Sector Clearing**: Before drawing, draw a Black Triangle from Center to (CurrentAngle, NextAngle) to wipe the path ahead.
      - **Explicit Erasure**: Draw a Black Line at the *previous* angle to ensure the old red scanner line is removed.
      - **Map Restoration**: Restore the "Shadow Zone" (Navy) and "Wall" (Cyan) at the previous angle *after* erasing the red line.
