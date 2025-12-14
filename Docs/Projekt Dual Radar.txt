@@ -1,0 +1,75 @@
+🛸 Projekt: Das Dual-Core Tron Radar
+Ziel: Ein visuelles Überwachungssystem im "Tron-Look", bestehend aus zwei unabhängigen Radar-Stationen, die ihre Daten live per WLAN an ein zentrales Dashboard senden.
+Hardware-Basis: 2x nackte ESP-12F Module.
+🛠 Teil 1: Die Hardware-Module
+Da der ESP-12F wenig Pins hat und empfindlich ist, haben wir das System in zwei Aufgabenbereiche geteilt.
+System A: Das "Grob-Radar" (Ultraschall)
+Erkennt Hindernisse in 4 Richtungen gleichzeitig.
+Sensoren: 4x HC-SR04 (Ultraschall).
+Aktor: 1x Servo (dreht 180°).
+Besonderheit: Nutzt "Interleaving" (versetztes Feuern) und geteilte Trigger-Pins, um Geisterechos zu verhindern und Pins zu sparen.
+Verkabelung (ESP-12F):
+Servo Signal: GPIO 2
+Trigger Gruppe 1 (Vorne + Hinten): GPIO 14
+Trigger Gruppe 2 (Links + Rechts): GPIO 12
+Echo Vorne: GPIO 5 (mit Spannungsteiler!)
+Echo Hinten: GPIO 4 (mit Spannungsteiler!)
+Echo Links: GPIO 13 (mit Spannungsteiler!)
+Echo Rechts: GPIO 15 (mit Spannungsteiler! & muss beim Boot auf GND liegen)
+⚠️ WICHTIG (5V Schutz): Da die Sensoren 5V auf den Echo-Pins ausgeben, der ESP aber nur 3.3V verträgt, müssen vor jeden Echo-Eingang Widerstände (Spannungsteiler: 1kΩ in Reihe, 2kΩ gegen Masse).
+System B: Das "Präzisions-Radar" (TOF)
+Erstellt ein exaktes Laser-Profil der Umgebung.
+Sensor: 1x TOF0400 (Chip: VL53L1X).
+Aktor: 1x Servo (dreht 180°).
+Kommunikation: I²C.
+Verkabelung (ESP-12F):
+Servo Signal: GPIO 14 (oder 12/13)
+TOF SCL (Takt): GPIO 5 (3. Pin von oben rechts)
+TOF SDA (Daten): GPIO 4 (4. Pin von oben rechts)
+TOF VCC: an 3.3V (Wichtig! Nicht 5V!)
+⚡ Teil 2: Der ESP-12F (Die Diva)
+Da du nackte Module nutzt, musst du die "Lebenserhaltung" manuell verdrahten, sonst startet der Chip nicht oder blinkt nur (Boot-Loop).
+Die Pflicht-Beschaltung:
+VCC: an saubere 3.3V.
+GND: an Masse.
+EN (CH_PD): Zwingend an 3.3V (Chip Enable).
+GPIO 15: Zwingend an GND (Boot-Modus Selektor).
+GPIO 0: Muss im Normalbetrieb frei/hoch sein (nur zum Flashen an GND).
+Programmieren (Arduino IDE Einstellungen):
+Board: Generic ESP8266 Module
+Flash Mode: 👉 DIO (QIO führt oft zu Abstürzen!)
+Flash Size: 4MB (FS:2MB OTA...)
+Reset Method: dtr (aka nodemcu)
+Erase Flash: All Flash Contents (wenn es Probleme gibt).
+💻 Teil 3: Die Software (Firmware)
+Benötigte Bibliotheken
+Im Bibliotheksverwalter installieren:
+WebSockets von Markus Sattler (für Echtzeit-Datenübertragung).
+VL53L1X von Pololu (für den TOF-Sensor).
+Servo (Standard integriert).
+Die 3 häufigsten Absturz-Ursachen (Blink-Loop)
+Wenn der ESP nach dem Hochladen wild blinkt, liegt es meist hieran:
+Watchdog Timeout (Ultraschall):
+Der Befehl pulseIn(pin, HIGH) wartet standardmäßig 1 Sekunde pro Sensor. Bei 4 Sensoren = 4 Sekunden Stille -> Der ESP denkt er ist tot und startet neu.
+Lösung: Immer Timeout nutzen: pulseIn(pin, HIGH, 25000); (Wartet max 25ms).
+Endlosschleifen:
+while(!sensor) ohne Pause tötet den ESP.
+Lösung: Immer yield(); in Schleifen einfügen.
+Strom-Einbruch (Brownout):
+Der Servo zieht beim Start viel Strom, die Spannung am ESP sackt ab -> Reset.
+Lösung: Kondensator an die Stromversorgung oder Servo separat versorgen (Masse verbinden!).
+🌐 Teil 4: Das Dashboard (Die Zentrale)
+Wir nutzen "Client-Side Aggregation". Das bedeutet:
+Beide ESPs laufen unabhängig und senden nur Daten ("Ich messe X cm bei Y Grad").
+Eine HTML-Datei (dashboard.html) auf deinem PC verbindet sich per WebSocket mit beiden IPs gleichzeitig.
+Das JavaScript im Browser malt das Bild:
+Links: Die 4 Ultraschall-Kegel (Neon Blau).
+Rechts: Der präzise Laser-Scan (Neon Orange/Rot).
+Stil: Schwarzer Hintergrund, leuchtende Gitterlinien (Tron Legacy Style).
+Kurzanleitung zur Inbetriebnahme
+Hardware Check: Prüfe beim ESP-12F, ob EN an 3.3V und GPIO15 an GND liegt.
+Flashen: Flash Mode auf DIO stellen.
+Code A (Ultraschall): Timeout bei pulseIn auf 25000 setzen!
+Code B (TOF): SDA an GPIO 4, SCL an GPIO 5. Lib von Pololu nutzen.
+Starten: Beide ESPs an den Strom (Vorsicht mit 5V vs 3.3V).
+Dashboard: HTML Datei öffnen, IPs eingeben, Radar genießen.

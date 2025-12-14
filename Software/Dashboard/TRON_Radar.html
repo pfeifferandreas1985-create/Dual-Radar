@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TRON COMMAND CENTER</title>
+  <style>
+    :root {
+      --bg-color: #050505;
+      --grid-color: #002222;
+      --text-color: #00FFFF;
+      --ultra-color: #0088FF;
+      --lidar-color: #FF4400;
+      --panel-bg: rgba(0, 20, 20, 0.9);
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg-color);
+      font-family: 'Segoe UI', 'Roboto', monospace;
+      color: var(--text-color);
+      overflow: hidden;
+    }
+
+    /* Layout */
+    #main-container {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .scope-container {
+      flex: 1;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-right: 1px solid #111;
+    }
+
+    .scope-container:last-child {
+      border-right: none;
+    }
+
+    canvas {
+      background: #000;
+      /* Solid black for map mode */
+      border-radius: 50%;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+    }
+
+    /* HUD */
+    .hud {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 2px;
+      border-bottom: 2px solid;
+      display: inline-block;
+      padding-bottom: 5px;
+    }
+
+    .status {
+      font-size: 12px;
+      margin-top: 5px;
+      font-weight: bold;
+    }
+
+    .status.connected {
+      color: #00FF00;
+      text-shadow: 0 0 5px #00FF00;
+    }
+
+    .status.disconnected {
+      color: #FF0000;
+    }
+
+    .controls {
+      margin-top: 10px;
+      pointer-events: auto;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 5px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    /* Specific Styles */
+    #left-scope h2 {
+      border-color: var(--ultra-color);
+      color: var(--ultra-color);
+      text-shadow: 0 0 10px var(--ultra-color);
+    }
+
+    #right-scope h2 {
+      border-color: var(--lidar-color);
+      color: var(--lidar-color);
+      text-shadow: 0 0 10px var(--lidar-color);
+    }
+
+    /* Modal */
+    #setup-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(5px);
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background: var(--panel-bg);
+      border: 1px solid var(--text-color);
+      padding: 40px;
+      border-radius: 10px;
+      box-shadow: 0 0 50px rgba(0, 255, 255, 0.2);
+      text-align: center;
+      width: 400px;
+    }
+
+    .modal-content h1 {
+      margin-top: 0;
+      letter-spacing: 4px;
+      font-size: 24px;
+      margin-bottom: 30px;
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 5px;
+      opacity: 0.8;
+    }
+
+    input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid #333;
+      color: white;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+
+    input:focus {
+      border-color: var(--text-color);
+      outline: none;
+    }
+
+    button {
+      background: transparent;
+      border: 1px solid var(--text-color);
+      color: var(--text-color);
+      padding: 12px 30px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 10px;
+      width: 100%;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+
+    button:hover {
+      background: rgba(0, 255, 255, 0.2);
+      box-shadow: 0 0 15px var(--text-color);
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      background: transparent;
+      width: 100px;
+      vertical-align: middle;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 12px;
+      width: 12px;
+      border-radius: 50%;
+      background: var(--ultra-color);
+      cursor: pointer;
+      margin-top: -4px;
+    }
+
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 4px;
+      background: #333;
+      border-radius: 2px;
+    }
+
+    .btn-small {
+      padding: 2px 8px;
+      font-size: 10px;
+      margin-left: 10px;
+      width: auto;
+      margin-top: 0;
+    }
+
+    /* Scanlines */
+    .scan-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 255, 255, 0.03) 3px);
+      pointer-events: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Setup Modal -->
+  <div id="setup-modal">
+    <div class="modal-content">
+      <h1>SYSTEM LINK</h1>
+      <div class="input-group">
+        <label>SOURCE A: ULTRASONIC RADAR (IP)</label>
+        <input type="text" id="ip-ultra" value="192.168.4.1" placeholder="e.g. 192.168.1.100">
+      </div>
+      <div class="input-group">
+        <label>SOURCE B: LIDAR TOF (IP)</label>
+        <input type="text" id="ip-lidar" value="192.168.4.2" placeholder="e.g. 192.168.1.101">
+      </div>
+      <button onclick="startSystem()">INITIALIZE</button>
+    </div>
+  </div>
+
+  <!-- Main Interface -->
+  <div id="main-container">
+    <!-- Left: Ultrasonic 360 -->
+    <div class="scope-container" id="left-scope">
+      <div class="hud">
+        <h2>SECTOR A: OMNI-SONAR</h2>
+        <div class="status disconnected" id="status-ultra">NO CARRIER</div>
+        <div class="controls">
+          <label style="display:inline; font-size:10px; margin-right:5px">SPEED</label>
+          <input type="range" id="ultra-speed" min="0" max="100" value="50">
+          <button class="btn-small" onclick="clearUltra()">RESET MAP</button>
+        </div>
+        <div style="margin-top: 10px; font-size: 10px; font-family: monospace; color: #00FFFF;">
+          <div>FRONT: <span id="val-front">--</span> cm</div>
+          <div>BACK : <span id="val-back">--</span> cm</div>
+          <div>LEFT : <span id="val-left">--</span> cm</div>
+          <div>RIGHT: <span id="val-right">--</span> cm</div>
+        </div>
+      </div>
+      <div class="scan-overlay"></div>
+      <canvas id="canvas-ultra"></canvas>
+    </div>
+
+    <!-- Right: LIDAR 180 -->
+    <div class="scope-container" id="right-scope">
+      <div class="hud">
+        <h2>SECTOR B: PRECISION LIDAR</h2>
+        <div class="status disconnected" id="status-lidar">NO CARRIER</div>
+        <div style="margin-top:5px; font-size:10px; opacity:0.6">DATA: TOF SINGLE BEAM</div>
+        <div style="margin-top: 10px; font-size: 10px; font-family: monospace; color: #FF4400;">
+          <div>DIST: <span id="val-lidar">--</span> mm</div>
+        </div>
+      </div>
+      <div class="scan-overlay"></div>
+      <canvas id="canvas-lidar"></canvas>
+    </div>
+  </div>
+
+  <script>
+    // ===========================================================================
+    // CONFIG & GLOBALS
+    // ===========================================================================
+    const MAX_RANGE_ULTRA = 200; // cm (Zoomed in for better visibility)
+    const MAX_RANGE_LIDAR = 2000; // mm (2m for visualization scale)
+
+    let wsUltra, wsLidar;
+
+    // ===========================================================================
+    // SYSTEM START
+    // ===========================================================================
+    function startSystem() {
+      const ipUltra = document.getElementById('ip-ultra').value;
+      const ipLidar = document.getElementById('ip-lidar').value;
+
+      if (!ipUltra || !ipLidar) { alert("INVALID TARGETS"); return; }
+
+      document.getElementById('setup-modal').style.display = 'none';
+
+      initUltra(ipUltra);
+      initLidar(ipLidar);
+
+      resize();
+      // No loop needed for Ultra Map Mode (Event driven drawing)
+      loopLidar();
+    }
+
+    // ===========================================================================
+    // ULTRASONIC CLIENT (Source A)
+    // ===========================================================================
+    function initUltra(ip) {
+      const statusEl = document.getElementById('status-ultra');
+      statusEl.textContent = "CONNECTING...";
+
+      wsUltra = new WebSocket(`ws://${ip}:81/`);
+
+      wsUltra.onopen = () => {
+        statusEl.textContent = "ONLINE";
+        statusEl.className = "status connected";
+      };
+      wsUltra.onclose = () => {
+        statusEl.textContent = "OFFLINE (RETRYING)";
+        statusEl.className = "status disconnected";
+        setTimeout(() => initUltra(ip), 3000);
+      };
+      wsUltra.onmessage = (e) => {
+        try {
+          const d = JSON.parse(e.data);
+
+          // Update Debug Values
+          document.getElementById('val-front').innerText = d.d_front;
+          document.getElementById('val-back').innerText = d.d_back;
+          document.getElementById('val-left').innerText = d.d_left;
+          document.getElementById('val-right').innerText = d.d_right;
+
+          // Direct Plotting for Map Mode
+          plotUltra(d.angle, d.d_front);
+          plotUltra(d.angle + 90, d.d_left);
+          plotUltra(d.angle + 180, d.d_back);
+          plotUltra(d.angle + 270, d.d_right);
+        } catch (err) { }
+      };
+    }
+
+    // Speed Control
+    document.getElementById('ultra-speed').oninput = function () {
+      const val = parseInt(this.value);
+      const delay = Math.floor(50 - (val * 0.45));
+      if (wsUltra && wsUltra.readyState === WebSocket.OPEN) {
+        wsUltra.send('S' + delay);
+      }
+    };
+
+    // ===========================================================================
+    // LIDAR CLIENT (Source B)
+    // ===========================================================================
+    const pointsLidar = [];
+
+    function initLidar(ip) {
+      const statusEl = document.getElementById('status-lidar');
+      statusEl.textContent = "CONNECTING...";
+
+      wsLidar = new WebSocket(`ws://${ip}:81/`);
+
+      wsLidar.onopen = () => {
+        statusEl.textContent = "ONLINE";
+        statusEl.className = "status connected";
+      };
+      wsLidar.onclose = () => {
+        statusEl.textContent = "OFFLINE (RETRYING)";
+        statusEl.className = "status disconnected";
+        setTimeout(() => initLidar(ip), 3000);
+      };
+      wsLidar.onmessage = (e) => {
+        try {
+          const d = JSON.parse(e.data);
+
+          // Update Debug Value
+          if (d.distance) document.getElementById('val-lidar').innerText = d.distance;
+
+          if (d.distance > 0 && d.distance < MAX_RANGE_LIDAR) {
+            pointsLidar.push({
+              angle: d.angle,
+              dist: d.distance,
+              time: Date.now()
+            });
+          }
+        } catch (err) { }
+      };
+    }
+
+    // ===========================================================================
+    // RENDERING
+    // ===========================================================================
+    const cvsUltra = document.getElementById('canvas-ultra');
+    const ctxUltra = cvsUltra.getContext('2d');
+    const cvsLidar = document.getElementById('canvas-lidar');
+    const ctxLidar = cvsLidar.getContext('2d');
+
+    let wUltra, hUltra, cxUltra, cyUltra, rUltra;
+    let wLidar, hLidar, cxLidar, cyLidar, rLidar;
+
+    function resize() {
+      const container = document.querySelector('.scope-container');
+      const size = Math.min(container.clientWidth, container.clientHeight) - 40;
+
+      // Ultra Setup
+      cvsUltra.width = size;
+      cvsUltra.height = size;
+      wUltra = size; hUltra = size;
+      cxUltra = size / 2; cyUltra = size / 2;
+      rUltra = size / 2 - 10;
+
+      // Draw Grid once for Ultra
+      drawGrid(ctxUltra, cxUltra, cyUltra, rUltra, '#002244');
+
+      // Lidar Setup
+      cvsLidar.width = size;
+      cvsLidar.height = size;
+      wLidar = size; hLidar = size;
+      cxLidar = size / 2; cyLidar = size / 2;
+      rLidar = size / 2 - 10;
+    }
+    window.addEventListener('resize', resize);
+
+    function drawGrid(ctx, cx, cy, r, color) {
+      // Clear first? No, for map mode we keep history. 
+      // But on resize we lose history anyway.
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 1; i <= 4; i++) ctx.arc(cx, cy, r * (i / 4), 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy);
+      ctx.moveTo(cx, cy - r); ctx.lineTo(cx, cy + r);
+      ctx.stroke();
+
+      // Labels
+      ctx.fillStyle = (color === '#002244') ? '#0088FF' : '#FF4400'; // Brighter Text
+      ctx.font = "12px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      // Move INSIDE the circle
+      ctx.fillText("FRONT", cx, cy - r + 20);
+      ctx.fillText("BACK", cx, cy + r - 20);
+      ctx.fillText("LEFT", cx - r + 30, cy);
+      ctx.fillText("RIGHT", cx + r - 30, cy);
+    }
+
+    window.clearUltra = () => {
+      ctxUltra.fillStyle = '#000000';
+      ctxUltra.fillRect(0, 0, wUltra, hUltra);
+      drawGrid(ctxUltra, cxUltra, cyUltra, rUltra, '#002244');
+    };
+
+    // --- PLOT ULTRA (MAP MODE) ---
+    function plotUltra(deg, dist) {
+      if (dist <= 0 || dist > MAX_RANGE_ULTRA) return;
+
+      // Correct Math: -deg rotates CCW on Canvas (where Y is down)
+      // 90 -> -90 (Up), 180 -> -180 (Left), 0 -> 0 (Right)
+      const rad = -deg * (Math.PI / 180);
+      const distPx = (dist / MAX_RANGE_ULTRA) * rUltra;
+
+      const x = cxUltra + Math.cos(rad) * distPx;
+      const y = cyUltra + Math.sin(rad) * distPx;
+
+      ctxUltra.fillStyle = '#00FFFF'; // Neon Blue
+      ctxUltra.fillRect(x, y, 1, 1); // 1x1 Pixel
+    }
+
+    // --- LOOP LIDAR (ANIMATED MODE) ---
+    function loopLidar() {
+      const now = Date.now();
+
+      ctxLidar.fillStyle = 'rgba(0,0,0,0.1)';
+      ctxLidar.fillRect(0, 0, wLidar, hLidar);
+      drawGrid(ctxLidar, cxLidar, cyLidar, rLidar, '#441100');
+
+      for (let i = pointsLidar.length - 1; i >= 0; i--) {
+        const p = pointsLidar[i];
+        const age = now - p.time;
+        if (age > 2000) { pointsLidar.splice(i, 1); continue; }
+
+        const rad = (p.angle - 180) * (Math.PI / 180);
+        const distPx = (p.dist / MAX_RANGE_LIDAR) * rLidar;
+
+        const x = cxLidar + Math.cos(rad) * distPx;
+        const y = cyLidar + Math.sin(rad) * distPx;
+
+        const alpha = 1 - (age / 2000);
+
+        ctxLidar.beginPath();
+        ctxLidar.arc(x, y, 2, 0, Math.PI * 2);
+        ctxLidar.fillStyle = `rgba(255, 68, 0, ${alpha})`;
+        if (age < 100) {
+          ctxLidar.shadowBlur = 10;
+          ctxLidar.shadowColor = '#FF4400';
+        } else {
+          ctxLidar.shadowBlur = 0;
+        }
+        ctxLidar.fill();
+        ctxLidar.shadowBlur = 0;
+      }
+
+      requestAnimationFrame(loopLidar);
+    }
+
+  </script>
+</body>
+
+</html>
