@@ -175,16 +175,26 @@ void loop() {
     // Read Sensor (Non-Blocking Check)
     if (sensor.dataReady()) {
       sensor.read(false);
-      uint16_t dist = sensor.ranging_data.range_mm;
-      if (sensor.ranging_data.range_status != VL53L1X::RangeValid) dist = MAX_DIST_MM; // Treat invalid as max
+      uint16_t rawDist = sensor.ranging_data.range_mm;
+      if (sensor.ranging_data.range_status != VL53L1X::RangeValid) rawDist = MAX_DIST_MM;
+      
+      // LOW PASS FILTER (Smoothing)
+      // Smooth the jittery TOF data: New = 70% Old + 30% New
+      // This makes the wall look solid and less "nervous"
+      uint16_t oldDist = distHistory[currentAngle];
+      if (oldDist == 0) oldDist = rawDist; // Init
+      
+      uint16_t smoothDist = (oldDist * 7 + rawDist * 3) / 10;
       
       // Update History
-      distHistory[currentAngle] = dist;
+      distHistory[currentAngle] = smoothDist;
+      
       // Draw Radar
-      drawRadar(currentAngle, dist);
+      drawRadar(currentAngle, smoothDist);
+      
       // Broadcast
       if (isOnline) {
-        String json = "{\"angle\":" + String(currentAngle) + ",\"distance\":" + String(dist) + "}";
+        String json = "{\"angle\":" + String(currentAngle) + ",\"distance\":" + String(smoothDist) + "}";
         webSocket.broadcastTXT(json);
       }
     }
