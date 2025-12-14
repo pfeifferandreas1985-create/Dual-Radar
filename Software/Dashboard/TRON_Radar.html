@@ -3,519 +3,526 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TRON COMMAND CENTER</title>
+  <title>NERO SENSE COMMAND</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-color: #050505;
-      --grid-color: #002222;
-      --text-color: #00FFFF;
-      --ultra-color: #0088FF;
-      --lidar-color: #FF4400;
-      --panel-bg: rgba(0, 20, 20, 0.9);
+      --tron-cyan: #00f3ff;
+      --tron-bg: #000808;
+      --tron-dark: #001111;
+      --matrix-green: #00ff41;
+      --matrix-bg: #000500;
+      --matrix-dark: #001100;
     }
 
     body {
+      background: #000;
+      color: #fff;
+      font-family: 'Orbitron', sans-serif;
       margin: 0;
-      background: var(--bg-color);
-      font-family: 'Segoe UI', 'Roboto', monospace;
-      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
       overflow: hidden;
     }
 
-    /* Layout */
-    #main-container {
+    /* --- HEADER --- */
+    header {
+      padding: 15px 30px;
+      background: linear-gradient(90deg, rgba(0, 20, 20, 0.9) 0%, rgba(0, 0, 0, 0.9) 100%);
+      border-bottom: 2px solid var(--tron-cyan);
       display: flex;
-      width: 100vw;
-      height: 100vh;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+      z-index: 10;
     }
 
-    .scope-container {
+    h1 {
+      margin: 0;
+      letter-spacing: 8px;
+      font-size: 24px;
+      color: var(--tron-cyan);
+      text-shadow: 0 0 10px var(--tron-cyan);
+    }
+
+    .sys-status {
+      font-family: 'Orbitron', sans-serif;
+      color: var(--tron-cyan);
+      font-size: 14px;
+    }
+
+    #main {
+      display: flex;
+      flex: 1;
+      position: relative;
+    }
+
+    /* --- PANELS --- */
+    .radar-panel {
       flex: 1;
       position: relative;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      border-right: 1px solid #111;
+      overflow: hidden;
     }
 
-    .scope-container:last-child {
-      border-right: none;
+    /* TRON THEME */
+    .theme-tron {
+      background: radial-gradient(circle at center, var(--tron-dark) 0%, #000 100%);
+      border-right: 2px solid var(--tron-cyan);
     }
 
-    canvas {
+    .theme-tron .panel-header {
+      background: rgba(0, 20, 20, 0.8);
+      border-bottom: 1px solid var(--tron-cyan);
+      color: var(--tron-cyan);
+    }
+
+    .theme-tron input {
+      border: 1px solid var(--tron-cyan);
+      color: var(--tron-cyan);
+      box-shadow: 0 0 5px var(--tron-cyan);
+    }
+
+    .theme-tron button {
+      background: rgba(0, 243, 255, 0.1);
+      border: 1px solid var(--tron-cyan);
+      color: var(--tron-cyan);
+    }
+
+    .theme-tron button:hover {
+      background: var(--tron-cyan);
+      color: #000;
+      box-shadow: 0 0 15px var(--tron-cyan);
+    }
+
+    .theme-tron .data-display {
+      color: var(--tron-cyan);
+      text-shadow: 0 0 5px var(--tron-cyan);
+    }
+
+    /* MATRIX THEME */
+    .theme-matrix {
       background: #000;
-      /* Solid black for map mode */
-      border-radius: 50%;
-      box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+      position: relative;
     }
 
-    /* HUD */
-    .hud {
+    /* Matrix rain overlay effect */
+    .theme-matrix::before {
+      content: "";
       position: absolute;
-      top: 20px;
-      left: 20px;
-      z-index: 10;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(0deg, rgba(0, 20, 0, 0.2) 25%, rgba(0, 0, 0, 0) 100%);
+      background-size: 4px 4px;
       pointer-events: none;
+      z-index: 0;
     }
 
-    h2 {
-      margin: 0;
+    .theme-matrix .panel-header {
+      background: rgba(0, 20, 0, 0.9);
+      border-bottom: 1px solid var(--matrix-green);
+      color: var(--matrix-green);
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    .theme-matrix input {
+      border: 1px solid var(--matrix-green);
+      color: var(--matrix-green);
+      font-family: 'Orbitron', sans-serif;
+      background: #000;
+    }
+
+    .theme-matrix button {
+      background: #000;
+      border: 1px solid var(--matrix-green);
+      color: var(--matrix-green);
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    .theme-matrix button:hover {
+      background: var(--matrix-green);
+      color: #000;
+    }
+
+    .theme-matrix .data-display {
+      color: var(--matrix-green);
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    /* --- COMMON UI --- */
+    .panel-header {
+      padding: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 2;
+    }
+
+    .panel-title {
       font-size: 18px;
-      letter-spacing: 2px;
-      border-bottom: 2px solid;
-      display: inline-block;
-      padding-bottom: 5px;
-    }
-
-    .status {
-      font-size: 12px;
-      margin-top: 5px;
       font-weight: bold;
-    }
-
-    .status.connected {
-      color: #00FF00;
-      text-shadow: 0 0 5px #00FF00;
-    }
-
-    .status.disconnected {
-      color: #FF0000;
+      letter-spacing: 2px;
     }
 
     .controls {
-      margin-top: 10px;
-      pointer-events: auto;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 5px;
-      border-radius: 4px;
-      display: inline-block;
-    }
-
-    /* Specific Styles */
-    #left-scope h2 {
-      border-color: var(--ultra-color);
-      color: var(--ultra-color);
-      text-shadow: 0 0 10px var(--ultra-color);
-    }
-
-    #right-scope h2 {
-      border-color: var(--lidar-color);
-      color: var(--lidar-color);
-      text-shadow: 0 0 10px var(--lidar-color);
-    }
-
-    /* Modal */
-    #setup-modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.85);
-      backdrop-filter: blur(5px);
-      z-index: 100;
       display: flex;
-      justify-content: center;
+      gap: 10px;
       align-items: center;
     }
 
-    .modal-content {
-      background: var(--panel-bg);
-      border: 1px solid var(--text-color);
-      padding: 40px;
-      border-radius: 10px;
-      box-shadow: 0 0 50px rgba(0, 255, 255, 0.2);
-      text-align: center;
-      width: 400px;
-    }
-
-    .modal-content h1 {
-      margin-top: 0;
-      letter-spacing: 4px;
-      font-size: 24px;
-      margin-bottom: 30px;
-    }
-
-    .input-group {
-      margin-bottom: 20px;
-      text-align: left;
-    }
-
-    label {
-      display: block;
-      font-size: 12px;
-      margin-bottom: 5px;
-      opacity: 0.8;
-    }
-
     input {
-      width: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      border: 1px solid #333;
-      color: white;
-      padding: 10px;
-      font-family: monospace;
-      font-size: 16px;
-      box-sizing: border-box;
+      background: transparent;
+      padding: 8px;
+      font-size: 14px;
+      width: 140px;
+      outline: none;
+      text-align: center;
     }
 
-    input:focus {
-      border-color: var(--text-color);
-      outline: none;
+    .input-small {
+      width: 80px;
     }
 
     button {
-      background: transparent;
-      border: 1px solid var(--text-color);
-      color: var(--text-color);
-      padding: 12px 30px;
-      font-size: 16px;
+      padding: 8px 20px;
       cursor: pointer;
-      transition: all 0.2s;
-      margin-top: 10px;
-      width: 100%;
       font-weight: bold;
-      letter-spacing: 2px;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
     }
 
-    button:hover {
-      background: rgba(0, 255, 255, 0.2);
-      box-shadow: 0 0 15px var(--text-color);
-    }
-
-    input[type=range] {
-      -webkit-appearance: none;
-      background: transparent;
-      width: 100px;
-      vertical-align: middle;
-    }
-
-    input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      height: 12px;
-      width: 12px;
-      border-radius: 50%;
-      background: var(--ultra-color);
-      cursor: pointer;
-      margin-top: -4px;
-    }
-
-    input[type=range]::-webkit-slider-runnable-track {
-      width: 100%;
-      height: 4px;
-      background: #333;
-      border-radius: 2px;
-    }
-
-    .btn-small {
-      padding: 2px 8px;
-      font-size: 10px;
+    .status {
+      font-weight: bold;
       margin-left: 10px;
-      width: auto;
-      margin-top: 0;
+      opacity: 0.7;
     }
 
-    /* Scanlines */
-    .scan-overlay {
+    .status.connected {
+      opacity: 1;
+      text-shadow: 0 0 10px currentColor;
+    }
+
+    /* --- DATA OVERLAY --- */
+    .data-overlay {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 5;
+      font-size: 16px;
+      line-height: 1.5;
+      pointer-events: none;
+    }
+
+    .data-row {
+      display: flex;
+      gap: 15px;
+    }
+
+    .label {
+      opacity: 0.7;
+    }
+
+    .value {
+      font-weight: bold;
+    }
+
+    canvas {
       position: absolute;
       top: 0;
       left: 0;
-      right: 0;
-      bottom: 0;
-      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 255, 255, 0.03) 3px);
-      pointer-events: none;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
     }
   </style>
 </head>
 
 <body>
 
-  <!-- Setup Modal -->
-  <div id="setup-modal">
-    <div class="modal-content">
-      <h1>SYSTEM LINK</h1>
-      <div class="input-group">
-        <label>SOURCE A: ULTRASONIC RADAR (IP)</label>
-        <input type="text" id="ip-ultra" value="192.168.4.1" placeholder="e.g. 192.168.1.100">
-      </div>
-      <div class="input-group">
-        <label>SOURCE B: LIDAR TOF (IP)</label>
-        <input type="text" id="ip-lidar" value="192.168.4.2" placeholder="e.g. 192.168.1.101">
-      </div>
-      <button onclick="startSystem()">INITIALIZE</button>
-    </div>
-  </div>
+  <header>
+    <h1>NERO SENSE COMMAND</h1>
+    <div class="sys-status">SYSTEM STATUS: <span id="global-status" style="color:#fff">ACTIVE</span></div>
+  </header>
 
-  <!-- Main Interface -->
-  <div id="main-container">
-    <!-- Left: Ultrasonic 360 -->
-    <div class="scope-container" id="left-scope">
-      <div class="hud">
-        <h2>SECTOR A: OMNI-SONAR</h2>
-        <div class="status disconnected" id="status-ultra">NO CARRIER</div>
+  <div id="main">
+    <!-- SYSTEM A: ULTRASONIC (TRON THEME) -->
+    <div class="radar-panel theme-tron" id="panel-A">
+      <div class="panel-header">
+        <span class="panel-title">SYSTEM A: ULTRASONIC</span>
         <div class="controls">
-          <label style="display:inline; font-size:10px; margin-right:5px">SPEED</label>
-          <input type="range" id="ultra-speed" min="0" max="100" value="50">
-          <button class="btn-small" onclick="clearUltra()">RESET MAP</button>
-        </div>
-        <div style="margin-top: 10px; font-size: 10px; font-family: monospace; color: #00FFFF;">
-          <div>FRONT: <span id="val-front">--</span> cm</div>
-          <div>BACK : <span id="val-back">--</span> cm</div>
-          <div>LEFT : <span id="val-left">--</span> cm</div>
-          <div>RIGHT: <span id="val-right">--</span> cm</div>
+          <input type="number" id="range-A" value="50" class="input-small" title="Range (cm)">
+          <input type="text" id="ip-A" value="192.168.178.70">
+          <button onclick="connectA()">CONNECT</button>
+          <span id="status-A" class="status">OFFLINE</span>
         </div>
       </div>
-      <div class="scan-overlay"></div>
-      <canvas id="canvas-ultra"></canvas>
+
+      <div class="data-overlay data-display">
+        <div class="data-row"><span class="label">FRONT:</span> <span class="value" id="dist-A-front">---</span></div>
+        <div class="data-row"><span class="label">LEFT:</span> <span class="value" id="dist-A-left">---</span></div>
+        <div class="data-row"><span class="label">RIGHT:</span> <span class="value" id="dist-A-right">---</span></div>
+        <div class="data-row"><span class="label">BACK:</span> <span class="value" id="dist-A-back">---</span></div>
+      </div>
+
+      <canvas id="canvas-A"></canvas>
     </div>
 
-    <!-- Right: LIDAR 180 -->
-    <div class="scope-container" id="right-scope">
-      <div class="hud">
-        <h2>SECTOR B: PRECISION LIDAR</h2>
-        <div class="status disconnected" id="status-lidar">NO CARRIER</div>
-        <div style="margin-top:5px; font-size:10px; opacity:0.6">DATA: TOF SINGLE BEAM</div>
-        <div style="margin-top: 10px; font-size: 10px; font-family: monospace; color: #FF4400;">
-          <div>DIST: <span id="val-lidar">--</span> mm</div>
+    <!-- SYSTEM B: TOF (MATRIX THEME) -->
+    <div class="radar-panel theme-matrix" id="panel-B">
+      <div class="panel-header">
+        <span class="panel-title">SYSTEM B: TOF LIDAR</span>
+        <div class="controls">
+          <input type="number" id="range-B" value="500" class="input-small" title="Range (mm)">
+          <input type="text" id="ip-B" value="192.168.178.71">
+          <button onclick="connectB()">CONNECT</button>
+          <span id="status-B" class="status">OFFLINE</span>
         </div>
       </div>
-      <div class="scan-overlay"></div>
-      <canvas id="canvas-lidar"></canvas>
+
+      <div class="data-overlay data-display">
+        <div class="data-row"><span class="label">ANGLE:</span> <span class="value" id="val-B-angle">0°</span></div>
+        <div class="data-row"><span class="label">DISTANCE:</span> <span class="value" id="val-B-dist">---</span></div>
+      </div>
+
+      <canvas id="canvas-B"></canvas>
     </div>
   </div>
 
   <script>
-    // ===========================================================================
-    // CONFIG & GLOBALS
-    // ===========================================================================
-    const MAX_RANGE_ULTRA = 200; // cm (Zoomed in for better visibility)
-    const MAX_RANGE_LIDAR = 2000; // mm (2m for visualization scale)
-
-    let wsUltra, wsLidar;
-
-    // ===========================================================================
-    // SYSTEM START
-    // ===========================================================================
-    function startSystem() {
-      const ipUltra = document.getElementById('ip-ultra').value;
-      const ipLidar = document.getElementById('ip-lidar').value;
-
-      if (!ipUltra || !ipLidar) { alert("INVALID TARGETS"); return; }
-
-      document.getElementById('setup-modal').style.display = 'none';
-
-      initUltra(ipUltra);
-      initLidar(ipLidar);
-
-      resize();
-      // No loop needed for Ultra Map Mode (Event driven drawing)
-      loopLidar();
-    }
-
-    // ===========================================================================
-    // ULTRASONIC CLIENT (Source A)
-    // ===========================================================================
-    function initUltra(ip) {
-      const statusEl = document.getElementById('status-ultra');
-      statusEl.textContent = "CONNECTING...";
-
-      wsUltra = new WebSocket(`ws://${ip}:81/`);
-
-      wsUltra.onopen = () => {
-        statusEl.textContent = "ONLINE";
-        statusEl.className = "status connected";
-      };
-      wsUltra.onclose = () => {
-        statusEl.textContent = "OFFLINE (RETRYING)";
-        statusEl.className = "status disconnected";
-        setTimeout(() => initUltra(ip), 3000);
-      };
-      wsUltra.onmessage = (e) => {
-        try {
-          const d = JSON.parse(e.data);
-
-          // Update Debug Values
-          document.getElementById('val-front').innerText = d.d_front;
-          document.getElementById('val-back').innerText = d.d_back;
-          document.getElementById('val-left').innerText = d.d_left;
-          document.getElementById('val-right').innerText = d.d_right;
-
-          // Direct Plotting for Map Mode
-          plotUltra(d.angle, d.d_front);
-          plotUltra(d.angle + 90, d.d_left);
-          plotUltra(d.angle + 180, d.d_back);
-          plotUltra(d.angle + 270, d.d_right);
-        } catch (err) { }
-      };
-    }
-
-    // Speed Control
-    document.getElementById('ultra-speed').oninput = function () {
-      const val = parseInt(this.value);
-      const delay = Math.floor(50 - (val * 0.45));
-      if (wsUltra && wsUltra.readyState === WebSocket.OPEN) {
-        wsUltra.send('S' + delay);
-      }
+    // --- CONFIG ---
+    const CFG = {
+      tron: { color: '#00f3ff', bg: '#001111', grid: '#003333' },
+      matrix: { color: '#00ff41', bg: '#000000', grid: '#003300' }
     };
 
-    // ===========================================================================
-    // LIDAR CLIENT (Source B)
-    // ===========================================================================
-    const pointsLidar = [];
+    // --- COMMON DRAWING ---
+    function drawRadar(ctx, width, height, mapData, maxDist, angle, theme, multiScan) {
+      const c = theme === 'tron' ? CFG.tron : CFG.matrix;
 
-    function initLidar(ip) {
-      const statusEl = document.getElementById('status-lidar');
-      statusEl.textContent = "CONNECTING...";
+      // Fade Effect
+      ctx.fillStyle = theme === 'tron' ? 'rgba(0,10,10,0.15)' : 'rgba(0,0,0,0.1)';
+      ctx.fillRect(0, 0, width, height);
 
-      wsLidar = new WebSocket(`ws://${ip}:81/`);
+      const cx = width / 2;
+      const cy = height / 2;
+      const r = Math.min(cx, cy) - 40;
 
-      wsLidar.onopen = () => {
-        statusEl.textContent = "ONLINE";
-        statusEl.className = "status connected";
-      };
-      wsLidar.onclose = () => {
-        statusEl.textContent = "OFFLINE (RETRYING)";
-        statusEl.className = "status disconnected";
-        setTimeout(() => initLidar(ip), 3000);
-      };
-      wsLidar.onmessage = (e) => {
-        try {
-          const d = JSON.parse(e.data);
-
-          // Update Debug Value
-          if (d.distance) document.getElementById('val-lidar').innerText = d.distance;
-
-          if (d.distance > 0 && d.distance < MAX_RANGE_LIDAR) {
-            pointsLidar.push({
-              angle: d.angle,
-              dist: d.distance,
-              time: Date.now()
-            });
-          }
-        } catch (err) { }
-      };
-    }
-
-    // ===========================================================================
-    // RENDERING
-    // ===========================================================================
-    const cvsUltra = document.getElementById('canvas-ultra');
-    const ctxUltra = cvsUltra.getContext('2d');
-    const cvsLidar = document.getElementById('canvas-lidar');
-    const ctxLidar = cvsLidar.getContext('2d');
-
-    let wUltra, hUltra, cxUltra, cyUltra, rUltra;
-    let wLidar, hLidar, cxLidar, cyLidar, rLidar;
-
-    function resize() {
-      const container = document.querySelector('.scope-container');
-      const size = Math.min(container.clientWidth, container.clientHeight) - 40;
-
-      // Ultra Setup
-      cvsUltra.width = size;
-      cvsUltra.height = size;
-      wUltra = size; hUltra = size;
-      cxUltra = size / 2; cyUltra = size / 2;
-      rUltra = size / 2 - 10;
-
-      // Draw Grid once for Ultra
-      drawGrid(ctxUltra, cxUltra, cyUltra, rUltra, '#002244');
-
-      // Lidar Setup
-      cvsLidar.width = size;
-      cvsLidar.height = size;
-      wLidar = size; hLidar = size;
-      cxLidar = size / 2; cyLidar = size / 2;
-      rLidar = size / 2 - 10;
-    }
-    window.addEventListener('resize', resize);
-
-    function drawGrid(ctx, cx, cy, r, color) {
-      // Clear first? No, for map mode we keep history. 
-      // But on resize we lose history anyway.
-      ctx.strokeStyle = color;
+      // Grid Rings & Distance Labels
+      ctx.strokeStyle = c.grid;
       ctx.lineWidth = 1;
+      ctx.fillStyle = c.color;
+      ctx.font = "10px Orbitron";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
       ctx.beginPath();
-      for (let i = 1; i <= 4; i++) ctx.arc(cx, cy, r * (i / 4), 0, Math.PI * 2);
+      for (let i = 1; i <= 4; i++) {
+        const radius = r * (i / 4);
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+
+        // Distance Labels (Top)
+        const labelVal = Math.round((maxDist * (i / 4)));
+        ctx.fillText(labelVal, cx, cy - radius - 8);
+      }
       ctx.stroke();
 
+      // Crosshairs
       ctx.beginPath();
       ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy);
       ctx.moveTo(cx, cy - r); ctx.lineTo(cx, cy + r);
       ctx.stroke();
 
-      // Labels
-      ctx.fillStyle = (color === '#002244') ? '#0088FF' : '#FF4400'; // Brighter Text
-      ctx.font = "12px monospace";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      // Move INSIDE the circle
-      ctx.fillText("FRONT", cx, cy - r + 20);
-      ctx.fillText("BACK", cx, cy + r - 20);
-      ctx.fillText("LEFT", cx - r + 30, cy);
-      ctx.fillText("RIGHT", cx + r - 30, cy);
-    }
+      // Directional Labels
+      ctx.font = "bold 12px Orbitron";
+      ctx.fillText("FRONT", cx, cy - r - 20);
+      ctx.fillText("BACK", cx, cy + r + 20);
+      ctx.textAlign = "left";
+      ctx.fillText("RIGHT", cx + r + 10, cy);
+      ctx.textAlign = "right";
+      ctx.fillText("LEFT", cx - r - 10, cy);
 
-    window.clearUltra = () => {
-      ctxUltra.fillStyle = '#000000';
-      ctxUltra.fillRect(0, 0, wUltra, hUltra);
-      drawGrid(ctxUltra, cxUltra, cyUltra, rUltra, '#002244');
-    };
-
-    // --- PLOT ULTRA (MAP MODE) ---
-    function plotUltra(deg, dist) {
-      if (dist <= 0 || dist > MAX_RANGE_ULTRA) return;
-
-      // Correct Math: -deg rotates CCW on Canvas (where Y is down)
-      // 90 -> -90 (Up), 180 -> -180 (Left), 0 -> 0 (Right)
-      const rad = -deg * (Math.PI / 180);
-      const distPx = (dist / MAX_RANGE_ULTRA) * rUltra;
-
-      const x = cxUltra + Math.cos(rad) * distPx;
-      const y = cyUltra + Math.sin(rad) * distPx;
-
-      ctxUltra.fillStyle = '#00FFFF'; // Neon Blue
-      ctxUltra.fillRect(x, y, 1, 1); // 1x1 Pixel
-    }
-
-    // --- LOOP LIDAR (ANIMATED MODE) ---
-    function loopLidar() {
-      const now = Date.now();
-
-      ctxLidar.fillStyle = 'rgba(0,0,0,0.1)';
-      ctxLidar.fillRect(0, 0, wLidar, hLidar);
-      drawGrid(ctxLidar, cxLidar, cyLidar, rLidar, '#441100');
-
-      for (let i = pointsLidar.length - 1; i >= 0; i--) {
-        const p = pointsLidar[i];
-        const age = now - p.time;
-        if (age > 2000) { pointsLidar.splice(i, 1); continue; }
-
-        const rad = (p.angle - 180) * (Math.PI / 180);
-        const distPx = (p.dist / MAX_RANGE_LIDAR) * rLidar;
-
-        const x = cxLidar + Math.cos(rad) * distPx;
-        const y = cyLidar + Math.sin(rad) * distPx;
-
-        const alpha = 1 - (age / 2000);
-
-        ctxLidar.beginPath();
-        ctxLidar.arc(x, y, 2, 0, Math.PI * 2);
-        ctxLidar.fillStyle = `rgba(255, 68, 0, ${alpha})`;
-        if (age < 100) {
-          ctxLidar.shadowBlur = 10;
-          ctxLidar.shadowColor = '#FF4400';
-        } else {
-          ctxLidar.shadowBlur = 0;
-        }
-        ctxLidar.fill();
-        ctxLidar.shadowBlur = 0;
+      // Map Drawing
+      ctx.fillStyle = c.color;
+      if (theme === 'tron') {
+        ctx.shadowBlur = 3;
+        ctx.shadowColor = c.color;
+      } else {
+        ctx.shadowBlur = 0;
       }
 
-      requestAnimationFrame(loopLidar);
+      for (let i = 0; i < 360; i++) {
+        if (mapData[i] <= 0) continue;
+
+        const rad = (i - 90) * (Math.PI / 180);
+        let d = mapData[i];
+        if (d > maxDist) d = maxDist;
+
+        const distPx = (d / maxDist) * r;
+        const x = cx + Math.cos(rad) * distPx;
+        const y = cy + Math.sin(rad) * distPx;
+
+        // Thinner dots for both
+        if (theme === 'tron') {
+          ctx.beginPath();
+          ctx.arc(x, y, 1, 0, Math.PI * 2); // Reduced size to 1
+          ctx.fill();
+        } else {
+          ctx.fillRect(x - 0.5, y - 0.5, 1, 1); // Reduced size to 1x1
+        }
+      }
+      ctx.shadowBlur = 0; // Reset
+
+      // Scanner
+      // Red scanner line for both
+      ctx.strokeStyle = '#ff0000';
+      ctx.lineWidth = 2;
+
+      const drawScanLine = (deg) => {
+        const scanRad = (deg - 90) * (Math.PI / 180);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(scanRad) * r, cy + Math.sin(scanRad) * r);
+        ctx.stroke();
+      };
+
+      drawScanLine(angle);
+
+      // Multi-scan for Ultrasonic (4 sensors)
+      if (multiScan) {
+        drawScanLine(angle + 90);
+        drawScanLine(angle + 180);
+        drawScanLine(angle + 270);
+      }
     }
+
+    // --- SYSTEM A (Ultrasonic) ---
+    const cvsA = document.getElementById('canvas-A');
+    const ctxA = cvsA.getContext('2d');
+    const mapA = new Array(360).fill(0);
+    let wsA;
+    let angleA = 0;
+
+    function resizeA() {
+      cvsA.width = cvsA.clientWidth;
+      cvsA.height = cvsA.clientHeight;
+    }
+
+    function connectA() {
+      const ip = document.getElementById('ip-A').value;
+      if (wsA) wsA.close();
+      wsA = new WebSocket('ws://' + ip + ':81/');
+
+      wsA.onopen = () => {
+        document.getElementById('status-A').innerText = "ONLINE";
+        document.getElementById('status-A').classList.add('connected');
+      };
+      wsA.onclose = () => {
+        document.getElementById('status-A').innerText = "OFFLINE";
+        document.getElementById('status-A').classList.remove('connected');
+      };
+      wsA.onmessage = (e) => {
+        try {
+          const d = JSON.parse(e.data);
+          angleA = d.angle;
+
+          // Update Distances Text
+          document.getElementById('dist-A-front').innerText = d.d_front + " cm";
+          document.getElementById('dist-A-left').innerText = d.d_left + " cm";
+          document.getElementById('dist-A-right').innerText = d.d_right + " cm";
+          document.getElementById('dist-A-back').innerText = d.d_back + " cm";
+
+          // Update 4 sectors
+          const range = parseInt(document.getElementById('range-A').value) || 50;
+          updateMap(mapA, d.angle, d.d_front, range);
+          updateMap(mapA, d.angle + 90, d.d_left, range);
+          updateMap(mapA, d.angle + 180, d.d_back, range);
+          updateMap(mapA, d.angle + 270, d.d_right, range);
+        } catch (err) { }
+      };
+    }
+
+    // --- SYSTEM B (TOF) ---
+    const cvsB = document.getElementById('canvas-B');
+    const ctxB = cvsB.getContext('2d');
+    const mapB = new Array(360).fill(0);
+    let wsB;
+    let angleB = 0;
+
+    function resizeB() {
+      cvsB.width = cvsB.clientWidth;
+      cvsB.height = cvsB.clientHeight;
+    }
+
+    function connectB() {
+      const ip = document.getElementById('ip-B').value;
+      if (wsB) wsB.close();
+      wsB = new WebSocket('ws://' + ip + ':81/');
+
+      wsB.onopen = () => {
+        document.getElementById('status-B').innerText = "ONLINE";
+        document.getElementById('status-B').classList.add('connected');
+      };
+      wsB.onclose = () => {
+        document.getElementById('status-B').innerText = "OFFLINE";
+        document.getElementById('status-B').classList.remove('connected');
+      };
+      wsB.onmessage = (e) => {
+        try {
+          const d = JSON.parse(e.data);
+          angleB = d.angle;
+          let dist = d.distance;
+
+          // Update Text
+          document.getElementById('val-B-angle').innerText = angleB + "°";
+          document.getElementById('val-B-dist').innerText = dist + " mm";
+
+          if (dist > 8000 || dist <= 0) dist = 0;
+          const a = d.angle % 360;
+          mapB[a] = dist;
+
+        } catch (err) { }
+      };
+    }
+
+    // Helper
+    function updateMap(map, deg, dist, max) {
+      let a = deg % 360;
+      if (a < 0) a += 360;
+      if (dist <= 0 || dist > max) {
+        map[a] = 0;
+      } else {
+        map[a] = dist;
+      }
+    }
+
+    // Loop
+    function loop() {
+      // Get ranges from inputs
+      const rangeA = parseInt(document.getElementById('range-A').value) || 50;
+      const rangeB = parseInt(document.getElementById('range-B').value) || 500;
+
+      // System A: TRON theme, Multi-Scan (4 lines)
+      drawRadar(ctxA, cvsA.width, cvsA.height, mapA, rangeA, angleA, 'tron', true);
+
+      // System B: Matrix theme, Single Scan
+      drawRadar(ctxB, cvsB.width, cvsB.height, mapB, rangeB, angleB, 'matrix', false);
+
+      requestAnimationFrame(loop);
+    }
+
+    window.onresize = () => { resizeA(); resizeB(); };
+    resizeA(); resizeB();
+    loop();
+
+    // Auto-Connect
+    setTimeout(() => {
+      connectA();
+      connectB();
+    }, 1000);
 
   </script>
 </body>
