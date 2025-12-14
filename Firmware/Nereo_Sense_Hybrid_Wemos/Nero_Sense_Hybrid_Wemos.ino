@@ -1,284 +1,361 @@
 /*
- * NERO SENSE HYBRID - SYSTEM B (TOF)
- * ----------------------------------
- * Hardware: Wemos D1 Mini (ESP8266), GC9A01 Display, TOF0400 (VL53L1X), Servo
- * Features: Tactical Dashboard (Split Screen), Hybrid Mode, WebSocket
+ * NERO SENSE - SYSTEM B (FINAL FIRMWARE)
+ * --------------------------------------
+ * Role: High-Performance Lidar Radar Unit
+ * Hardware: Wemos D1 Mini (ESP8266)
+ * Display: GC9A01 (240x240 Round) via Hardware SPI
+ * Sensor: VL53L1X (TOF) via I2C
+ * Servo: SG90 (PWM)
+ *
+ * --- USER_SETUP.h CONFIGURATION (TFT_eSPI) ---
+ * #define USER_SETUP_INFO "Wemos_GC9A01"
+ * #define GC9A01_DRIVER
+ * #define TFT_WIDTH  240
+ * #define TFT_HEIGHT 240
+ * #define TFT_MOSI 13 // D7
+ * #define TFT_SCLK 14 // D5
+ * #define TFT_CS   15 // D8
+ * #define TFT_DC    0 // D3
+ * #define TFT_RST  16 // D0
+ * #define LOAD_GLCD
+ * #define LOAD_FONT2
+ * #define LOAD_FONT4
+ * #define LOAD_FONT6
+ * #define LOAD_GFXFF
+ * #define SMOOTH_FONT
+ * #define SPI_FREQUENCY  27000000
  */
-
 #include <SPI.h>
-#include <TFT_eSPI.h>       // Hardware-specific library
+#include <TFT_eSPI.h>
 #include <Wire.h>
 #include <VL53L1X.h>
 #include <Servo.h>
 #include <ESP8266WiFi.h>
 #include <WebSocketsServer.h>
-
 // --- CONFIGURATION ---
-// Network
 const char* ssid = "FRITZ!Box 6660 Cable UE";
-const char* password = "28370714691864306613"; 
-IPAddress local_IP(192, 168, 178, 41);
+const char* password = "28370714691864306613";
+IPAddress local_IP(192, 168, 178, 71); // Corrected to .71
 IPAddress gateway(192, 168, 178, 1);
 IPAddress subnet(255, 255, 255, 0);
-
-// Pins (Wemos D1 Mini)
 #define SERVO_PIN 12 // D6
 #define SDA_PIN 4    // D2
 #define SCL_PIN 5    // D1
-
-// Radar Settings
-#define MAX_DIST_MM 1000  // Max distance for visualization (1m)
+#define MAX_DIST_MM 1000
 #define ANGLE_MIN 0
 #define ANGLE_MAX 180
-#define ANGLE_STEP 2      // Degrees per step
-
-// Colors (RGB565)
+#define ANGLE_STEP 2
+// Colors
 #define C_BLACK   0x0000
-#define C_CYAN    0x07FF
-#define C_GREEN   0x07E0
-#define C_RED     0xF800
-#define C_ORANGE  0xFD20
-#define C_GRID    0x39E7  // Dark Grey
 #define C_WHITE   0xFFFF
-
+#define C_CYAN    0x07FF
+#define C_RED     0xF800
+#define C_GREEN   0x07E0
+#define C_NAVY    0x000F // Dark Navy for Shadows
+#define C_GRID    0x18E3 // Dim Grey for Grid
 // --- OBJECTS ---
 TFT_eSPI tft = TFT_eSPI();
 VL53L1X sensor;
 Servo myServo;
 WebSocketsServer webSocket = WebSocketsServer(81);
-
 // --- STATE ---
 bool isOnline = false;
 int currentAngle = 0;
-int direction = 1; // 1 = up, -1 = down
+int direction = 1;
 unsigned long lastServoMove = 0;
-int servoDelay = 15; // Speed control
-
-// Radar Map (Persistence)
-uint16_t distMap[181]; 
-
-// Layout Constants
+int servoDelay = 15;
+// Lidar Memory
+uint16_t distHistory[181]; // Stores last distance for 0-180 deg
+// Layout
 const int CX = 120;
-const int CY = 120; // Center of the screen, but radar origin is also here?
-// User asked for "Radar Area to Top Semicircle (Y: 0 to 120)".
-// This implies the center of the radar arc is at (120, 120).
-const int R_MAX = 118; 
-
+const int CY = 120;
+const int R_MAX = 118;
+// --- PROTOTYPES ---
+void playIntro();
+void drawRadar(int angle, int dist);
+void drawInterface();
 void setup() {
   Serial.begin(115200);
-  
   // 1. INIT DISPLAY
   tft.init();
-  tft.setRotation(0); 
+  tft.setRotation(0);
   tft.fillScreen(C_BLACK);
+  // 2. CINEMATIC BOOT
+  playIntro();
+  // 3. INIT SENSORS - ROBUST SEQUENCE
   
-  // Boot Animation
-  tft.setTextDatum(MC_DATUM);
-  tft.setTextColor(C_CYAN, C_BLACK);
-  tft.setTextSize(2); 
-  tft.drawString("NERO SENSE", 120, 100);
+  // A. Power-up stabilization
+  delay(1000); 
+  // B. I2C Bus Reset (Fix stuck slaves)
+  // Manually toggle SCL to release SDA if slave is holding it low
+  pinMode(SDA_PIN, INPUT_PULLUP);
+  pinMode(SCL_PIN, OUTPUT);
+  for(int i=0; i<9; i++) {
+    digitalWrite(SCL_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(SCL_PIN, LOW);
+    delayMicroseconds(10);
+  }
+  pinMode(SCL_PIN, INPUT_PULLUP);
   
-  tft.setTextSize(1);
-  tft.setTextColor(C_WHITE, C_BLACK);
-  tft.drawString("System Init...", 120, 140);
-  delay(2000); 
-
-  // 2. INIT SENSORS
   Wire.begin(SDA_PIN, SCL_PIN);
-  Wire.setClock(400000);
+  Wire.setClock(100000); // 100kHz for stability
+  // C. Retry Loop for Sensor Init
+  bool sensorFound = false;
+  tft.setTextDatum(MC_DATUM);
   
-  sensor.setTimeout(500);
-  if (!sensor.init()) {
+  for(int attempt=1; attempt<=5; attempt++) {
+     tft.fillRect(0, 170, 240, 40, C_BLACK);
+     tft.setTextColor(C_WHITE, C_BLACK);
+     tft.drawString("Init Sensor: " + String(attempt) + "/5", 120, 180);
+     
+     sensor.setTimeout(500);
+     if (sensor.init()) {
+       sensorFound = true;
+       tft.setTextColor(C_GREEN, C_BLACK);
+       tft.drawString("Sensor OK!", 120, 180);
+       delay(500);
+       break;
+     }
+     
+     // Failed attempt
+     delay(500);
+  }
+  if (!sensorFound) {
     tft.setTextColor(C_RED, C_BLACK);
-    tft.drawString("SENSOR FAIL", 120, 160);
-    // Non-blocking error loop
-    while (1) { yield(); delay(100); }
+    tft.drawString("SENSOR ERROR!", 120, 180);
+    tft.drawString("Check Wiring", 120, 200);
+    while(1) { yield(); delay(100); }
   }
   sensor.setDistanceMode(VL53L1X::Long);
-  sensor.setMeasurementTimingBudget(15000); 
-  sensor.startContinuous(15);
-
-  myServo.attach(SERVO_PIN);
-
-  // 3. CONNECTIVITY MANAGER
-  tft.fillRect(0, 130, 240, 40, C_BLACK); 
-  tft.drawString("Connecting WiFi...", 120, 140);
+  sensor.setMeasurementTimingBudget(50000);
+  sensor.startContinuous(50);
+  // Servo Setup (Extended Range)
+  myServo.attach(SERVO_PIN, 500, 2500);
+  // 4. NETWORK MANAGER (Non-Blocking Attempt)
+  tft.fillScreen(C_BLACK);
+  drawInterface(); // Draw UI first
   
   WiFi.config(local_IP, gateway, subnet);
-  WiFi.begin(ssid, password); 
-
+  WiFi.begin(ssid, password);
+  
   unsigned long startAttempt = millis();
   bool connected = false;
   
-  while (millis() - startAttempt < 8000) {
+  // Small status indicator
+  tft.setTextDatum(TC_DATUM);
+  tft.setTextColor(C_WHITE, C_BLACK);
+  tft.drawString("Connecting...", 120, 130);
+  while (millis() - startAttempt < 5000) { // 5s Timeout
     if (WiFi.status() == WL_CONNECTED) {
       connected = true;
       break;
     }
-    delay(100);
-    int bar = map(millis() - startAttempt, 0, 8000, 0, 100);
-    tft.drawRect(70, 160, 100, 4, C_CYAN);
-    tft.fillRect(70, 160, bar, 4, C_CYAN);
+    delay(50);
   }
-
-  tft.fillScreen(C_BLACK);
-  
+  // Clear Status Text
+  tft.fillRect(80, 130, 80, 20, C_BLACK);
   if (connected) {
     isOnline = true;
     webSocket.begin();
+    tft.fillCircle(120, 135, 3, C_GREEN); // Online Dot
   } else {
     isOnline = false;
-    // Just flash offline briefly
-    tft.setTextColor(C_ORANGE, C_BLACK);
-    tft.drawString("OFFLINE MODE", 120, 120);
-    delay(1000);
-    tft.fillScreen(C_BLACK);
+    tft.fillCircle(120, 135, 3, C_RED);   // Offline Dot
   }
-  
-  // DRAW STATIC INTERFACE
-  drawInterface();
 }
-
 void loop() {
   if (isOnline) webSocket.loop();
-
   unsigned long now = millis();
-
-  // 1. NON-BLOCKING SERVO
+  // 1. SERVO & SENSOR LOOP
   if (now - lastServoMove >= servoDelay) {
     lastServoMove = now;
-    
     // Move Servo
     myServo.write(currentAngle);
-    
+    // Read Sensor (Non-Blocking Check)
+    if (sensor.dataReady()) {
+      sensor.read(false);
+      uint16_t dist = sensor.ranging_data.range_mm;
+      if (sensor.ranging_data.range_status != VL53L1X::RangeValid) dist = MAX_DIST_MM; // Treat invalid as max
+      
+      // Update History
+      distHistory[currentAngle] = dist;
+      // Draw Radar
+      drawRadar(currentAngle, dist);
+      // Broadcast
+      if (isOnline) {
+        String json = "{\"angle\":" + String(currentAngle) + ",\"distance\":" + String(dist) + "}";
+        webSocket.broadcastTXT(json);
+      }
+    }
     // Advance Angle
     currentAngle += direction * ANGLE_STEP;
     if (currentAngle >= ANGLE_MAX || currentAngle <= ANGLE_MIN) {
       direction *= -1;
     }
   }
-
-  // 2. NON-BLOCKING SENSOR READ
-  if (sensor.dataReady()) {
-    sensor.read(false); 
-    uint16_t dist = sensor.ranging_data.range_mm;
-    
-    if (sensor.ranging_data.range_status != VL53L1X::RangeValid) {
-       // dist = 0; 
-    }
-    
-    // Update Map
-    distMap[currentAngle] = dist;
-    
-    // VISUALIZE
-    drawRadarUpdate(currentAngle, dist);
-    updateDashboard(currentAngle, dist);
-    
-    // BROADCAST
-    if (isOnline) {
-      String json = "{\"angle\":" + String(currentAngle) + 
-                    ",\"distance\":" + String(dist) + "}";
-      webSocket.broadcastTXT(json);
-    }
+}
+// --- VISUALIZATION ENGINE ---
+// Global to track the last position of the red scanner
+int lastScannerAngle = 0;
+void drawRadar(int angle, int dist) {
+  // 1. ERASE PREVIOUS SCANNER LINE & RESTORE MAP
+  if (lastScannerAngle != angle) {
+      float lastRad = (180 - lastScannerAngle) * DEG_TO_RAD;
+      int lastEdgeX = CX + cos(lastRad) * R_MAX;
+      int lastEdgeY = CY - sin(lastRad) * R_MAX;
+      
+      // A. Erase Red Line (Draw Black)
+      tft.drawLine(CX, CY, lastEdgeX, lastEdgeY, C_BLACK);
+      
+      // B. Restore Grid
+      for (int r = 40; r < R_MAX; r += 40) {
+        int gx = CX + cos(lastRad) * r;
+        int gy = CY - sin(lastRad) * r;
+        tft.drawPixel(gx, gy, C_GRID);
+      }
+      
+      // C. Restore Map Data (Classic Dot + Shadow)
+      int storedDist = distHistory[lastScannerAngle];
+      if (storedDist > 0 && storedDist < MAX_DIST_MM) {
+          int dPx = map(storedDist, 0, MAX_DIST_MM, 0, R_MAX);
+          int ox = CX + cos(lastRad) * dPx;
+          int oy = CY - sin(lastRad) * dPx;
+          
+          // Zone B: Contour Line (Thin Cyan)
+          // Instead of a thick dot, we connect to the neighbor to form a wall.
+          
+          // 1. Draw Shadow first (Background)
+          tft.drawLine(ox, oy, lastEdgeX, lastEdgeY, C_NAVY);
+          
+          // 2. Draw Contour (Foreground)
+          int prevIndex = lastScannerAngle - 1;
+          bool connected = false;
+          
+          if (prevIndex >= 0) {
+             int prevDist = distHistory[prevIndex];
+             // Jump Filter: Only connect if depth difference is small (< 300mm)
+             // This prevents connecting foreground objects to background walls.
+             if (prevDist > 0 && prevDist < MAX_DIST_MM && abs(prevDist - storedDist) < 300) {
+                 float prevRad = (180 - prevIndex) * DEG_TO_RAD;
+                 int pdPx = map(prevDist, 0, MAX_DIST_MM, 0, R_MAX);
+                 int pox = CX + cos(prevRad) * pdPx;
+                 int poy = CY - sin(prevRad) * pdPx;
+                 
+                 tft.drawLine(pox, poy, ox, oy, C_CYAN);
+                 connected = true;
+             }
+          }
+          
+          // If not connected (start of line or jump), draw a single pixel
+          if (!connected) {
+             tft.drawPixel(ox, oy, C_CYAN);
+          }
+      }
   }
-}
-
-// --- VISUALIZATION ---
-
-void drawInterface() {
-  // 1. Tactical Grid (Top Semicircle)
-  // Center is (120, 120). We draw arcs from 180 to 360 degrees (Top half)
-  // Actually, standard math: 0 is right, -90 is top, 180 is left.
-  // Servo 0-180 maps to Screen 180 (Left) -> 270 (Top) -> 360/0 (Right)?
-  // Let's assume Servo 0 = Left (180 deg), Servo 90 = Top (270 deg), Servo 180 = Right (0 deg).
-  // Or simpler: Servo 0 = Left, Servo 180 = Right.
-  
-  tft.drawCircle(CX, CY, 30, C_GRID);
-  tft.drawCircle(CX, CY, 60, C_GRID);
-  tft.drawCircle(CX, CY, 90, C_GRID);
-  tft.drawCircle(CX, CY, R_MAX, C_CYAN); // Outer Rim
-  
-  // Radial Lines
-  // 0 deg (Right), 180 deg (Left), 90 deg (Top)
-  tft.drawLine(CX - R_MAX, CY, CX + R_MAX, CY, C_GRID); // Horizontal Base
-  tft.drawLine(CX, CY, CX, CY - R_MAX, C_GRID);         // Vertical Center
-  
-  // 45 and 135
-  int r45 = R_MAX;
-  int x45 = CX + cos(-45 * DEG_TO_RAD) * r45;
-  int y45 = CY + sin(-45 * DEG_TO_RAD) * r45;
-  tft.drawLine(CX, CY, x45, y45, C_GRID);
-  
-  int x135 = CX + cos(-135 * DEG_TO_RAD) * r45;
-  int y135 = CY + sin(-135 * DEG_TO_RAD) * r45;
-  tft.drawLine(CX, CY, x135, y135, C_GRID);
-
-  // 2. Dashboard Separator
-  tft.drawLine(0, 122, 240, 122, C_CYAN);
-
-  // 3. Static Text Labels
-  tft.setTextDatum(TC_DATUM); // Top Center
-  tft.setTextColor(C_GRID, C_BLACK);
-  tft.drawString("DISTANCE", 120, 135, 2);
-}
-
-void drawRadarUpdate(int angle, int dist) {
-  // Map Servo Angle (0-180) to Screen Rads
-  // 0 -> 180 deg (PI) -> Left
-  // 180 -> 0 deg (0) -> Right
-  // Formula: rad = (180 - angle) * DEG_TO_RAD
-
+  // 2. DRAW NEW SCANNER LINE
   float rad = (180 - angle) * DEG_TO_RAD;
-
-  // 1. ERASE PREVIOUS LINE
-  // We calculate where the line was
-  int prevAngle = angle - (direction * ANGLE_STEP);
-  float prevRad = (180 - prevAngle) * DEG_TO_RAD;
-
-  int px = CX + cos(prevRad) * R_MAX;
-  int py = CY - sin(prevRad) * R_MAX; // Subtract sin because Y is inverted
-
-  tft.drawLine(CX, CY, px, py, C_BLACK);
-
-  // REDRAW GRID
-  if (abs(prevAngle - 90) < 2) tft.drawLine(CX, CY, CX, CY - R_MAX, C_GRID);
-
-  // NOTE: We do NOT restore the old dot here.
-  // This ensures the "wiper" clears the screen, preventing clutter.
-
-  // 2. DRAW NEW SCANNER (RED)
-  int x = CX + cos(rad) * R_MAX;
-  int y = CY - sin(rad) * R_MAX;
-  tft.drawLine(CX, CY, x, y, C_RED);
-
-  // 3. DRAW OBSTACLE
-  if (dist > 0 && dist < MAX_DIST_MM) {
-    int dPx = map(dist, 0, MAX_DIST_MM, 0, R_MAX);
-    int ox = CX + cos(rad) * dPx;
-    int oy = CY - sin(rad) * dPx;
-    
-    tft.fillCircle(ox, oy, 3, C_CYAN);
-  }
+  int edgeX = CX + cos(rad) * R_MAX;
+  int edgeY = CY - sin(rad) * R_MAX;
+  
+  // Draw Red Line
+  tft.drawLine(CX, CY, edgeX, edgeY, C_RED);
+  
+  // Update Tracker
+  lastScannerAngle = angle;
+  
+  // 3. UPDATE DASHBOARD (Text)
+  updateDashboard(angle, dist);
 }
-
 void updateDashboard(int angle, int dist) {
-  // Bottom Half Dashboard
+  // Clear previous text area (optimized rects)
+  tft.fillRect(60, 160, 120, 60, C_BLACK);
+  
   // Distance Value (Large)
-  tft.setTextDatum(MC_DATUM); // Middle Center
-  tft.setTextColor(C_WHITE, C_BLACK); // Overwrite background
+  tft.setTextDatum(MC_DATUM); 
+  tft.setTextColor(C_WHITE, C_BLACK);
   
-  // Font 6 is large numeric, Font 4 is medium
-  // Using Font 4 for safety as 6 might be too big for 240px width with "mm"
-  
-  String distStr = String(dist) + " mm";
+  String distStr = (dist >= MAX_DIST_MM) ? "> 1000" : String(dist) + " mm";
   tft.drawString(distStr, 120, 170, 4); 
   
   // Angle Value (Small)
   tft.setTextColor(C_CYAN, C_BLACK);
   String angleStr = "ANG: " + String(angle) + " deg";
-  tft.drawString(angleStr, 120, 210, 2);
+  tft.drawString(angleStr, 120, 200, 2);
   
   // Connectivity Dot
-  if (isOnline) tft.fillCircle(220, 220, 4, C_GREEN);
-  else tft.fillCircle(220, 220, 4, C_RED);
+  if (isOnline) tft.fillCircle(120, 220, 4, C_GREEN);
+  else tft.fillCircle(120, 220, 4, C_RED);
+}
+void drawInterface() {
+  // Static Grid Rings
+  tft.drawCircle(CX, CY, 40, C_GRID);
+  tft.drawCircle(CX, CY, 80, C_GRID);
+  tft.drawCircle(CX, CY, R_MAX, C_CYAN); // Outer Rim
+  
+  // Crosshairs
+  tft.drawLine(CX - R_MAX, CY, CX + R_MAX, CY, C_GRID);
+  tft.drawLine(CX, CY, CX, CY - R_MAX, C_GRID);
+}
+// --- CINEMATIC BOOT ---
+void playIntro() {
+  // T=0: Singularity
+  tft.fillScreen(C_BLACK);
+  tft.drawPixel(CX, CY, C_WHITE);
+  delay(500);
+  // T=500-1000: Pulse
+  for (int r = 0; r <= 15; r++) {
+    tft.fillCircle(CX, CY, r, C_WHITE);
+    delay(10);
+  }
+  for (int r = 15; r >= 5; r--) {
+    tft.fillCircle(CX, CY, r, C_BLACK); // Hollow out
+    tft.drawCircle(CX, CY, r, C_WHITE);
+    delay(10);
+  }
+  
+  // T=1000-1800: Ignition (Ring Wipe)
+  for (int r = 0; r < 140; r+=4) {
+    tft.drawCircle(CX, CY, r, C_CYAN);
+    tft.drawCircle(CX, CY, r-1, C_CYAN);
+    delay(5);
+  }
+  tft.fillScreen(C_BLACK);
+  // T=1800-3000: Identity
+  tft.setTextDatum(MC_DATUM);
+  
+  // Glitch Effect
+  for(int i=0; i<3; i++) {
+    int ox = random(-2, 3);
+    int oy = random(-2, 3);
+    tft.setTextColor(C_WHITE, C_BLACK);
+    tft.drawString("NERO", CX+ox, CY-20+oy, 4);
+    tft.setTextColor(C_CYAN, C_BLACK);
+    tft.drawString("ROBOTICS", CX-ox, CY+10-oy, 2);
+    delay(50);
+    tft.fillScreen(C_BLACK);
+  }
+  
+  // Final Text
+  tft.setTextColor(C_WHITE, C_BLACK);
+  tft.drawString("NERO", CX, CY-20, 4);
+  tft.setTextColor(C_CYAN, C_BLACK);
+  tft.drawString("ROBOTICS", CX, CY+10, 2);
+  
+  // Lines
+  tft.drawLine(60, CY-40, 180, CY-40, C_GRID);
+  tft.drawLine(60, CY+30, 180, CY+30, C_GRID);
+  
+  delay(1000);
+  // T=3000-4000: Boot
+  tft.drawRect(70, 200, 100, 4, C_GRID);
+  for(int i=0; i<100; i+=2) {
+    tft.fillRect(72, 202, i, 2, C_GREEN);
+    delay(10);
+  }
+  
+  // Flash
+  tft.fillScreen(C_WHITE);
+  delay(50);
+  tft.fillScreen(C_BLACK);
 }
