@@ -44,7 +44,7 @@ IPAddress subnet(255, 255, 255, 0);
 #define MAX_DIST_MM 1000
 #define ANGLE_MIN 0
 #define ANGLE_MAX 180
-#define ANGLE_STEP 2
+#define ANGLE_STEP 1 // Reduced from 2 for smoother sweep and full coverage
 // Colors
 #define C_BLACK   0x0000
 #define C_WHITE   0xFFFF
@@ -175,29 +175,33 @@ void loop() {
     // Read Sensor (Non-Blocking Check)
     if (sensor.dataReady()) {
       sensor.read(false);
-      uint16_t rawDist = sensor.ranging_data.range_mm;
-      if (sensor.ranging_data.range_status != VL53L1X::RangeValid) rawDist = MAX_DIST_MM;
+      uint16_t dist = sensor.ranging_data.range_mm;
       
-      // LOW PASS FILTER (Smoothing)
-      // Smooth the jittery TOF data: New = 70% Old + 30% New
-      // This makes the wall look solid and less "nervous"
-      uint16_t oldDist = distHistory[currentAngle];
-      if (oldDist == 0) oldDist = rawDist; // Init
+      // Handle Invalid Readings
+      // If status is not valid, we assume it's "out of range" (MAX).
+      // However, for "too close" (saturation), it might also fail.
+      // But usually, standard invalid means "nothing found".
+      if (sensor.ranging_data.range_status != VL53L1X::RangeValid) {
+        dist = MAX_DIST_MM;
+      }
       
-      uint16_t smoothDist = (oldDist * 7 + rawDist * 3) / 10;
+      // REMOVED LOW PASS FILTER
+      // Averaging with 'distHistory' (previous sweep) caused ghosting/lag.
+      // We use raw data for instant detection.
       
       // Update History
-      distHistory[currentAngle] = smoothDist;
+      distHistory[currentAngle] = dist;
       
       // Draw Radar
-      drawRadar(currentAngle, smoothDist);
+      drawRadar(currentAngle, dist);
       
       // Broadcast
       if (isOnline) {
-        String json = "{\"angle\":" + String(currentAngle) + ",\"distance\":" + String(smoothDist) + "}";
+        String json = "{\"angle\":" + String(currentAngle) + ",\"distance\":" + String(dist) + "}";
         webSocket.broadcastTXT(json);
       }
     }
+    
     // Advance Angle
     currentAngle += direction * ANGLE_STEP;
     if (currentAngle >= ANGLE_MAX || currentAngle <= ANGLE_MIN) {
@@ -209,45 +213,78 @@ void loop() {
 // Global to track the last position of the red scanner
 int lastScannerAngle = 0;
 void drawRadar(int angle, int dist) {
-  // 1. ERASE PREVIOUS SCANNER LINE & RESTORE MAP
+  // 1. SECTOR CLEARING (The "Wiper")
+  // We must clear the wedge between the current angle and the NEXT angle
+  // to ensure no pixels are left behind from the previous sweep.
+  // This solves the "persistent blue lines" issue.
+  
+  int nextAngle = angle + (direction * ANGLE_STEP);
+  // Clamp nextAngle
+  if (nextAngle < ANGLE_MIN) nextAngle = ANGLE_MIN;
+  if (nextAngle > ANGLE_MAX) nextAngle = ANGLE_MAX;
+  
+  if (nextAngle != angle) {
+      float rad1 = (180 - angle) * DEG_TO_RAD;
+      float rad2 = (180 - nextAngle) * DEG_TO_RAD;
+      
+      int x1 = CX + cos(rad1) * R_MAX;
+      int y1 = CY - sin(rad1) * R_MAX;
+      int x2 = CX + cos(rad2) * R_MAX;
+      int y2 = CY - sin(rad2) * R_MAX;
+      
+      // Wipe the sector ahead black
+      tft.fillTriangle(CX, CY, x1, y1, x2, y2, C_BLACK);
+  }
+  // 2. RESTORE MAP BEHIND SCANNER
+  // The scanner has moved FROM lastScannerAngle TO angle.
+  // We need to restore the map data at lastScannerAngle.
+  
   if (lastScannerAngle != angle) {
       float lastRad = (180 - lastScannerAngle) * DEG_TO_RAD;
       int lastEdgeX = CX + cos(lastRad) * R_MAX;
       int lastEdgeY = CY - sin(lastRad) * R_MAX;
       
-      // A. Erase Red Line (Draw Black)
+      // A. CRITICAL: Erase the Red Line (and old map data) first!
       tft.drawLine(CX, CY, lastEdgeX, lastEdgeY, C_BLACK);
       
-      // B. Restore Grid
+      // B. Restore Grid at last position
       for (int r = 40; r < R_MAX; r += 40) {
         int gx = CX + cos(lastRad) * r;
         int gy = CY - sin(lastRad) * r;
         tft.drawPixel(gx, gy, C_GRID);
       }
       
-      // C. Restore Map Data (Classic Dot + Shadow)
+      // Restore Map Data (Classic Dot + Shadow)
       int storedDist = distHistory[lastScannerAngle];
       if (storedDist > 0 && storedDist < MAX_DIST_MM) {
           int dPx = map(storedDist, 0, MAX_DIST_MM, 0, R_MAX);
           int ox = CX + cos(lastRad) * dPx;
           int oy = CY - sin(lastRad) * dPx;
+          int lastEdgeX = CX + cos(lastRad) * R_MAX;
+          int lastEdgeY = CY - sin(lastRad) * R_MAX;
           
           // Zone B: Contour Line (Thin Cyan)
-          // Instead of a thick dot, we connect to the neighbor to form a wall.
-          
           // 1. Draw Shadow first (Background)
           tft.drawLine(ox, oy, lastEdgeX, lastEdgeY, C_NAVY);
           
           // 2. Draw Contour (Foreground)
-          int prevIndex = lastScannerAngle - 1;
+          int prevIndex = lastScannerAngle - (direction * ANGLE_STEP); // Use direction!
+          // Note: direction might have flipped if we hit edge. 
+          // But usually we restore the *trailing* edge.
+          // If we just turned around, lastScannerAngle is the turning point.
+          
+          // Simple neighbor check:
+          // We want to connect lastScannerAngle to its "previous" neighbor in the sweep.
+          // Since we sweep back and forth, "previous" is relative to time.
+          // But for a static map, we usually connect to angle-1.
+          
+          int neighborIdx = lastScannerAngle - 1;
           bool connected = false;
           
-          if (prevIndex >= 0) {
-             int prevDist = distHistory[prevIndex];
-             // Jump Filter: Only connect if depth difference is small (< 300mm)
-             // This prevents connecting foreground objects to background walls.
-             if (prevDist > 0 && prevDist < MAX_DIST_MM && abs(prevDist - storedDist) < 300) {
-                 float prevRad = (180 - prevIndex) * DEG_TO_RAD;
+          if (neighborIdx >= 0) {
+             int prevDist = distHistory[neighborIdx];
+             if (prevDist > 0 && prevDist < MAX_DIST_MM && abs(prevDist - storedDist) < 150) {
+                 float prevRad = (180 - neighborIdx) * DEG_TO_RAD;
                  int pdPx = map(prevDist, 0, MAX_DIST_MM, 0, R_MAX);
                  int pox = CX + cos(prevRad) * pdPx;
                  int poy = CY - sin(prevRad) * pdPx;
@@ -257,13 +294,12 @@ void drawRadar(int angle, int dist) {
              }
           }
           
-          // If not connected (start of line or jump), draw a single pixel
           if (!connected) {
              tft.drawPixel(ox, oy, C_CYAN);
           }
       }
   }
-  // 2. DRAW NEW SCANNER LINE
+  // 3. DRAW NEW SCANNER LINE
   float rad = (180 - angle) * DEG_TO_RAD;
   int edgeX = CX + cos(rad) * R_MAX;
   int edgeY = CY - sin(rad) * R_MAX;
@@ -274,7 +310,7 @@ void drawRadar(int angle, int dist) {
   // Update Tracker
   lastScannerAngle = angle;
   
-  // 3. UPDATE DASHBOARD (Text)
+  // 4. UPDATE DASHBOARD
   updateDashboard(angle, dist);
 }
 void updateDashboard(int angle, int dist) {
